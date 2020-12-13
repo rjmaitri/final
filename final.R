@@ -5,6 +5,9 @@
 #' Final Project Data Wrangling
 
 #
+library(Rsubread)
+library(edgeR)
+library(tidyverse)
 
 
 ####The purpose of the workflow is to find differentially expressed genes from a RNA-seq data of 
@@ -15,13 +18,31 @@
 fastq.files <- list.files(path = "rnaseq/", pattern = ".fastq$", full.names = TRUE)
 fastq.files
 
+Veh_fastq.files <- list.files(path = "rnaseq/", pattern = "^V", full.names = TRUE)
+Veh_fastq.files
+
 #build the index -
 #reference genome from ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/annotation/GRCh38_latest/refseq_identifiers/GRCh38_latest_genomic.fna.gz
 # buildindex(basename="Sapiens_Index",reference="GRCh38_latest_genomic.fna", gappedIndex = TRUE, indexSplit = TRUE)
 
+#build index with EBI 
+#oaded from the GENCODE database via the following links:
+#ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_28/GRCh38.primary_
+#assembly.genome.fa.gz
+# buildindex(basename="Ebi_Homo_Sapien_Index",reference="GRCh38.primary_assembly.genome.fa.gz", gappedIndex = TRUE, indexSplit = TRUE)
+
+###############The initial index using ncbi produced very low gene counts - 
+#I found out the Ebi index was recommended by the Rsubread authors - 
+#Hence the second index build
+#the first alignment with EBi index crashed on the 
+#V1, the second align() boded below here is to pick up at V1
+
 
 #maps reads in dataset to reference index
-# align.stat <- align(index = "Sapiens_Index", readfile1 = fastq.files)
+#align.stat <- align(index = "Ebi_Homo_Sapien_Index", readfile1 = fastq.files)
+
+#picking up at V1
+align.stat <- align(index = "Ebi_Homo_Sapien_Index", readfile1 = Veh_fastq.files)
 
 
 
@@ -49,15 +70,15 @@ se <- SummarizedExperiment(fc$counts, rowRanges = fc$annotation$GeneID, colData 
 #output a txt file of count data
 write.table(x=data.frame(fc$annotation[,c("GeneID")],fc$counts,stringsAsFactors=FALSE),file="strandedcounts.txt",quote=FALSE,sep="\t",row.names=FALSE)
 
-write.table(x=data.frame(fc$annotation[,c("GeneID","Length")],fc$counts,stringsAsFactors=FALSE),file="RScounts.txt",quote=FALSE,sep="\t",row.names=FALSE)
+write.table(x=data.frame(fc$annotation[,c("GeneID","Length")],fc$counts,stringsAsFactors=FALSE),file="EbiRscounts.txt",quote=FALSE,sep="\t",row.names=FALSE)
 #dimensions - rows are genes, columns are samples
 dim(fc)
 
 #load data into a table
-RStrandedCountTable <- read.table(file = 'RScounts.txt', header = TRUE)
+EBI_RStrandedCountTable <- read.table(file = 'EbiRscounts.txt', header = TRUE)
 
 #extract null counts as percentage
-prop.null <- apply(counttable_length_omit, 2, function(x) 100*mean(x==0))
+prop.null <- apply(EBI_RStrandedCountTable, 2, function(x) 100*mean(x==0))
 View(prop.null)
 print(head(prop.null))
 #plot null counts - alot of zeros
@@ -74,8 +95,8 @@ fc <- fc$counts[count.table,]
 
 
 
-#######HISTOGRAM ATTEMPTS ###############
-ggplot(counttble) +
+#######HISTOGRAM ATTEMPTS ############### FUCK YEAHHHH
+ggplot(EBI_RStrandedCountTable) +
   geom_histogram(aes(x = F1_CAAGCTAG.ACATAGCG_L002_R1_001..1..fastq.subread.BAM), stat = "bin", bins = 200) +
   xlab("Raw expression counts") +
   ylab("Number of genes")
