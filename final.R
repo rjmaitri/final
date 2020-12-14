@@ -106,9 +106,9 @@ barplot(prop.null, main="Percentage of null counts per sample",
         horiz=TRUE, cex.names=0.5, las=1, ylab='Samples', xlab='% of null counts')
 
 #alot of misses
-
-mean_counts <- apply(data[,6:8], 1, mean)        #The second argument '1' of 'apply' function indicates the function being applied to rows. Use '2' if applied to columns 
-variance_counts <- apply(data[,6:8], 1, var)
+#compute vectors for mean and variance of fulvestrant-treated samples
+mean_counts <- apply(fcRS_counts[,1:3], 1, mean)        #The second argument '1' of 'apply' function indicates the function being applied to rows. Use '2' if applied to columns 
+variance_counts <- apply(fcRS_counts[,1:3], 1, var)
 df <- data.frame(mean_counts, variance_counts)
 
 ggplot(df) +
