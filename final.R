@@ -56,34 +56,46 @@ bam.files <- list.files(path = "rnaseq/", pattern = ".BAM$", full.names = TRUE)
 #featureCounts generates a matrix of read counts to genes in each sample
 #strandSpecific 'TruSeq Stranded mRNAseq Sample Prep kit' (Illumina). 
 #Read 1 aligns to the ANTISENSE strand and Read 2 aligns to the SENSE strand
-fc <- featureCounts(bam.files, annot.inbuilt="hg38", strandSpecific = 2)
+fcRS <- featureCounts(bam.files, annot.inbuilt="hg38", strandSpecific = 2)
 
+#dimensions - rows are genes, columns are samples
+dim(fc)
 
 #This outputs the mapping status of the reads
 #fc$stat
 
-#SummarizedExperiment 
+#SummarizedExperiment HAVENT USED THIS, MIGHT BE USEFUL IF I GET IT TO WORK
 #matrix features are accessed with an R function of the same name: assay (counts), rowRanges(geneID) and colData(samples/targets).
-se <- SummarizedExperiment(fc$counts, rowRanges = fc$annotation$GeneID, colData = fc$targets)
+##se <- SummarizedExperiment(fc$counts, rowRanges = fc$annotation$GeneID, colData = fc$targets)
 
 ####write to file
 #output a txt file of count data
-write.table(x=data.frame(fc$annotation[,c("GeneID")],fc$counts,stringsAsFactors=FALSE),file="strandedcounts.txt",quote=FALSE,sep="\t",row.names=FALSE)
+write.table(x=data.frame(fcRS$annotation[,c("GeneID","Length")],fcRS$counts,stringsAsFactors=FALSE),file="RScountsEBI.txt",quote=FALSE,sep="\t",row.names=FALSE)
 
-write.table(x=data.frame(fc$annotation[,c("GeneID","Length")],fc$counts,stringsAsFactors=FALSE),file="EbiRscounts.txt",quote=FALSE,sep="\t",row.names=FALSE)
-#dimensions - rows are genes, columns are samples
-dim(fc)
 
 #load data into a table
-EBI_RStrandedCountTable <- read.table(file = 'EbiRscounts.txt', header = TRUE)
+EBI_RStrandedCountTable <- read.table(file = 'RScountsEBI.txt', header = TRUE)
+
+#######HISTOGRAM############### FUCK YEAHHHH complete
+ggplot(EBI_RStrandedCountTable) +
+  geom_histogram(aes(x = F1_CAAGCTAG.ACATAGCG_L002_R1_001..1..fastq.subread.BAM), stat = "bin", bins = 250, colour = "lightblue", fill = "orange") +
+  xlab("Raw expression counts") +
+  ylab("Number of genes")+
+  xlim(0,20000)+
+  ylim(0,1760)+
+  theme_dark()
+#F1 COUNT DISTRIBUTION(gamma) = total gene amount vs. expression counts shows a typical single cell sequencing
+#distribution, with alot of lowly expressed genes and few genes with high expression
 
 #extract null counts as percentage
 prop.null <- apply(EBI_RStrandedCountTable, 2, function(x) 100*mean(x==0))
 View(prop.null)
 print(head(prop.null))
-#plot null counts - alot of zeros
+#plot null counts
 barplot(prop.null, main="Percentage of null counts per sample", 
         horiz=TRUE, cex.names=0.5, las=1, ylab='Samples', xlab='% of null counts')
+
+#alot of misses
 
 
 #Determine which genes have sufficiently large counts to be retained in a statistical analysis.
@@ -92,21 +104,7 @@ count.table <- filterByExpr(fc$counts, group = fastq.files)
 fc <- fc$counts[count.table,]
 
 
-
-
-
-#######HISTOGRAM ATTEMPTS ############### FUCK YEAHHHH
-ggplot(EBI_RStrandedCountTable) +
-  geom_histogram(aes(x = F1_CAAGCTAG.ACATAGCG_L002_R1_001..1..fastq.subread.BAM), stat = "bin", bins = 200) +
-  xlab("Raw expression counts") +
-  ylab("Number of genes")
-
-
-
-hist(counttble$F1_CAAGCTAG.ACATAGCG_L002_R1_001..1..fastq.subread.BAM)
-
-
-
+####SHOW DISPERSION ######
 
 ########results
 #pca/heatmap/dge list/NB with benjamini-hochberg correction/gene ontology/pattern pathways
