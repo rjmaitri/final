@@ -42,7 +42,7 @@ Veh_fastq.files
 #align.stat <- align(index = "Ebi_Homo_Sapien_Index", readfile1 = fastq.files)
 
 #picking up at V1
-align.stat <- align(index = "Ebi_Homo_Sapien_Index", readfile1 = Veh_fastq.files)
+#align.stat <- align(index = "Ebi_Homo_Sapien_Index", readfile1 = Veh_fastq.files)
 
 
 
@@ -58,6 +58,13 @@ bam.files <- list.files(path = "rnaseq/", pattern = ".BAM$", full.names = TRUE)
 #Read 1 aligns to the ANTISENSE strand and Read 2 aligns to the SENSE strand
 fcRS <- featureCounts(bam.files, annot.inbuilt="hg38", strandSpecific = 2)
 
+####write to file
+####JUST USE THIS
+fcRS_counts <- fcRS$counts
+
+#stranded (LOW EXPRESSION)
+fcS <- featureCounts(bam.files, annot.inbuilt="hg38", strandSpecific = 1)
+
 #dimensions - rows are genes, columns are samples
 dim(fc)
 
@@ -69,6 +76,9 @@ dim(fc)
 ##se <- SummarizedExperiment(fc$counts, rowRanges = fc$annotation$GeneID, colData = fc$targets)
 
 ####write to file
+####JUST USE THIS
+#fc_counts <- fcS$counts
+
 #output a txt file of count data
 write.table(x=data.frame(fcRS$annotation[,c("GeneID","Length")],fcRS$counts,stringsAsFactors=FALSE),file="RScountsEBI.txt",quote=FALSE,sep="\t",row.names=FALSE)
 
@@ -97,6 +107,15 @@ barplot(prop.null, main="Percentage of null counts per sample",
 
 #alot of misses
 
+mean_counts <- apply(data[,6:8], 1, mean)        #The second argument '1' of 'apply' function indicates the function being applied to rows. Use '2' if applied to columns 
+variance_counts <- apply(data[,6:8], 1, var)
+df <- data.frame(mean_counts, variance_counts)
+
+ggplot(df) +
+  geom_point(aes(x=mean_counts, y=variance_counts)) + 
+  scale_y_log10(limits = c(1,1e9)) +
+  scale_x_log10(limits = c(1,1e9)) +
+  geom_abline(intercept = 0, slope = 1, color="red")
 
 #Determine which genes have sufficiently large counts to be retained in a statistical analysis.
 #default values of filtByExpr have been used for low expression - 
@@ -109,4 +128,9 @@ fc <- fc$counts[count.table,]
 ########results
 #pca/heatmap/dge list/NB with benjamini-hochberg correction/gene ontology/pattern pathways
 
-
+#'Variance-mean dependence was estimated from count tables and 
+#'tested for differential expression based on a negative binomial 
+#'distribution, using DESeq2 v1.18.1. Pairwise comparison or one-way analysis of 
+#'variance were run with a parametric fit and genotype as the source 
+#'of variation (factor: ‘mutant’ or ‘control’)
+Genome_b
