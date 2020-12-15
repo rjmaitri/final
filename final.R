@@ -17,6 +17,8 @@ library(tidyverse)
 #get a list of the raw reads in the directory /rnaseq
 fastq.files <- list.files(path = "rnaseq/", pattern = ".fastq$", full.names = TRUE)
 fastq.files
+##abbreviate sample names
+fastq.abbrv <- substr(fastq.files, start = 8, stop = 9)
 
 
 ###VEH_fastq.files was created to resume index alignment after a blue screen of death crash
@@ -59,6 +61,7 @@ bam.files <- list.files(path = "rnaseq/", pattern = ".BAM$", full.names = TRUE)
 #Read 1 aligns to the ANTISENSE strand and Read 2 aligns to the SENSE strand
 fcRS <- featureCounts(bam.files, annot.inbuilt="hg38", strandSpecific = 2)
 
+fcRS$targets <- substr(fastq.files, start = 8, stop = 9)
 ####write counts to table
 
 fcRS_counts <- fcRS$counts
@@ -140,7 +143,7 @@ FilteredGenes <- rowSums(cpm(DGEfulvestrant) > 10) >= 2
 DGEfulvestrant <- DGEfulvestrant[FilteredGenes,]
 ##Design matrix. Create a design matrix:
 
-samples <- factor(fastq.files)
+samples <- factor(fastq.abbrv)
 designmatrix <- model.matrix(~0+samples)
 colnames(designmatrix) <- levels(samples)
 ##Normalization. Perform voom normalization: DOESNT WORK
@@ -150,13 +153,21 @@ Normalization <- voom(DGEfulvestrant,designmatrix,plot=TRUE)
 ####dimension analysis - change names of samples
 #distances on the plot approximate the typical 
 #log2 fold changes between the samples.
-plotMDS(Normalization,xlim=c(-2.5,2.5))
+#This function is a variation on the usual multdimensional 
+#scaling (or principle coordinate) plot, in that a distance 
+#measure particularly appropriate for the microarray context 
+#is used. The distance between each pair of samples 
+#(columns) is the root-mean-square deviation (Euclidean distance) 
+#for the top top genes. Distances on the plot can be 
+#interpreted as leading log2-fold-change, meaning the 
+#typical (root-mean-square) log2-fold-change between the samples for the genes that distinguish those samples.
+plotMDS(Normalization,xlim=c(-17.5,17.5),ylim=c(-1.0,.5))
 
-Linear model fitting and differential expression analysis. Fit linear models to genes
-and assess differential expression using eBayes moderated t statistic. Here we compare sample
-B vs sample A.
-fit <- lmFit(y,design)
-contr <- makeContrasts(BvsA=B-A,levels=design)
+#Linear model fitting and differential expression analysis. Fit linear models to genes
+#and assess differential expression using eBayes moderated t statistic. Here we compare sample
+#B vs sample A.
+fit <- lmFit(Normalization,designmatrix)
+contr <- makeContrasts(VvsF=V-F,levels=designmatrix)
 fit.contr <- eBayes(contrasts.fit(fit,contr))
 dt <- decideTests(fit.contr)
 summary(dt)
