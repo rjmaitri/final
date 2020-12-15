@@ -18,8 +18,10 @@ library(tidyverse)
 fastq.files <- list.files(path = "rnaseq/", pattern = ".fastq$", full.names = TRUE)
 fastq.files
 
-Veh_fastq.files <- list.files(path = "rnaseq/", pattern = "^V", full.names = TRUE)
-Veh_fastq.files
+
+###VEH_fastq.files was created to resume index alignment after a blue screen of death crash
+#Veh_fastq.files <- list.files(path = "rnaseq/", pattern = "^V", full.names = TRUE)
+#Veh_fastq.files
 
 #build the index -
 #reference genome from ftp://ftp.ncbi.nlm.nih.gov/refseq/H_sapiens/annotation/GRCh38_latest/refseq_identifiers/GRCh38_latest_genomic.fna.gz
@@ -36,7 +38,6 @@ Veh_fastq.files
 #Hence the second index build
 #the first alignment with EBi index crashed on the 
 #V1, the second align() boded below here is to pick up at V1
-
 
 #maps reads in dataset to reference index
 #align.stat <- align(index = "Ebi_Homo_Sapien_Index", readfile1 = fastq.files)
@@ -58,15 +59,16 @@ bam.files <- list.files(path = "rnaseq/", pattern = ".BAM$", full.names = TRUE)
 #Read 1 aligns to the ANTISENSE strand and Read 2 aligns to the SENSE strand
 fcRS <- featureCounts(bam.files, annot.inbuilt="hg38", strandSpecific = 2)
 
-####write to file
-####JUST USE THIS
+####write counts to table
+
 fcRS_counts <- fcRS$counts
 
-#stranded (LOW EXPRESSION)
-fcS <- featureCounts(bam.files, annot.inbuilt="hg38", strandSpecific = 1)
+#stranded (SUSPICIOUSLY LOW EXPRESSION)
+#fcS <- featureCounts(bam.files, annot.inbuilt="hg38", strandSpecific = 1)
 
 #dimensions - rows are genes, columns are samples
-dim(fc)
+dim(fcRS$counts)
+#six samples with 28395 genes
 
 #This outputs the mapping status of the reads
 #fc$stat
@@ -105,28 +107,64 @@ print(head(prop.null))
 barplot(prop.null, main="Percentage of null counts per sample", 
         horiz=TRUE, cex.names=0.5, las=1, ylab='Samples', xlab='% of null counts')
 
-#alot of misses
-#compute vectors for mean and variance of fulvestrant-treated samples
-mean_counts <- apply(fcRS_counts[,1:3], 1, mean)        #The second argument '1' of 'apply' function indicates the function being applied to rows. Use '2' if applied to columns 
-variance_counts <- apply(fcRS_counts[,1:3], 1, var)
-df <- data.frame(mean_counts, variance_counts)
-
-ggplot(df) +
-  geom_point(aes(x=mean_counts, y=variance_counts)) + 
-  scale_y_log10(limits = c(1,1e9)) +
-  scale_x_log10(limits = c(1,1e9)) +
-  geom_abline(intercept = 0, slope = 1, color="red")
-
 #Determine which genes have sufficiently large counts to be retained in a statistical analysis.
 #default values of filtByExpr have been used for low expression - 
-count.table <- filterByExpr(fc$counts, group = fastq.files)
-fc <- fc$counts[count.table,]
+#count.table <- filterByExpr(fc$counts, group = fastq.files)
+#fc <- fc$counts[count.table,]
+
+#alot of misses
+#compute vectors for mean and variance of fulvestrant-treated samples
+mean.counts <- apply(fcRS_counts[,1:3], 1, mean)        #The second argument '1' of 'apply' function indicates the function being applied to rows. Use '2' if applied to columns 
+variance.counts <- apply(fcRS_counts[,1:3], 1, var)
+MeanVariancedf <- data.frame(mean.counts, variance.counts)
+
+#scatter-plot to display mean-variance relationship
+ggplot(MeanVariancedf) +
+  geom_point(aes(x=mean.counts, y=variance.counts), colour = "orange", alpha = .8) + 
+  scale_y_log10(limits = c(1,1e9)) +
+  scale_x_log10(limits = c(1,1e9)) +
+  geom_abline(intercept = 0, slope = 1, color="green")+
+  theme_dark()
+
+####looks typical of single cell seq data, many genes with low-level of expression and a few
+#high-level expression
+
+#############RSUBUSERS RNA-SEQ DGE ANALYSIS
+
+DGEfulvestrant <- DGEList(counts=fcRS$counts, genes=fcRS$annotation[,c("GeneID","Length")])
+
+####Filter to keep genes which had  more than 10 reads per million mapped
+#reads in at least two libraries. **credit Rsubread Users Guide
+FilteredGenes <- rowSums(cpm(DGEfulvestrant) > 10) >= 2
+#write to dataframe
+DGEfulvestrant <- DGEfulvestrant[FilteredGenes,]
+##Design matrix. Create a design matrix:
+
+samples <- factor(fastq.files)
+designmatrix <- model.matrix(~0+samples)
+colnames(designmatrix) <- levels(samples)
+##Normalization. Perform voom normalization: DOESNT WORK
+#what is the math behind normalization in this function????
+Normalization <- voom(DGEfulvestrant,designmatrix,plot=TRUE)
+
+####dimension analysis - change names of samples
+#distances on the plot approximate the typical 
+#log2 fold changes between the samples.
+plotMDS(Normalization,xlim=c(-2.5,2.5))
+
+Linear model fitting and differential expression analysis. Fit linear models to genes
+and assess differential expression using eBayes moderated t statistic. Here we compare sample
+B vs sample A.
+fit <- lmFit(y,design)
+contr <- makeContrasts(BvsA=B-A,levels=design)
+fit.contr <- eBayes(contrasts.fit(fit,contr))
+dt <- decideTests(fit.contr)
+summary(dt)
 
 
-####SHOW DISPERSION ######
 
 ########results
-#pca/heatmap/dge list/NB with benjamini-hochberg correction/gene ontology/pattern pathways
+/heatmap/dge list/NB with benjamini-hochberg correction/gene ontology/pattern pathways
 
 #'Variance-mean dependence was estimated from count tables and 
 #'tested for differential expression based on a negative binomial 
