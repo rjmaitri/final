@@ -195,6 +195,7 @@ y <- calcNormFactors(y)
 design <- model.matrix(~group)
 y <- estimateDisp(y,design)
 
+#Fit a glm quasi-likelihood
 fit <- glmQLFit(y,design)
 qlf <- glmQLFTest(fit,coef=2)
 topTags(qlf)
