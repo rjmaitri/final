@@ -61,9 +61,9 @@ bam.files <- list.files(path = "rnaseq/", pattern = ".BAM$", full.names = TRUE)
 #Read 1 aligns to the ANTISENSE strand and Read 2 aligns to the SENSE strand,
 #this maps the mrna sequence to the annotated exons
 fcRS <- featureCounts(bam.files, annot.inbuilt="hg38", strandSpecific = 2)
-#tidy sample names
+#tidy sample names(needed for MDS plot labels)
 fcRS$targets <- substr(fcRS$targets, start = 1, stop = 2)
-####write counts to table
+####write counts to table (needed for mean/variance dependence)
 fcRS_counts <- fcRS$counts
 #stranded (SUSPICIOUSLY LOW EXPRESSION)
 #fcS <- featureCounts(bam.files, annot.inbuilt="hg38", strandSpecific = 1)
@@ -85,9 +85,15 @@ dim(fcRS$counts)
 #output a txt file of count data
 write.table(x=data.frame(fcRS$annotation[,c("GeneID","Length")],fcRS$counts,stringsAsFactors=FALSE),file="RScountsEBI.txt",quote=FALSE,sep="\t",row.names=FALSE)
 
+#For edgeR quasi-likelihood DGE
+write.table(x=data.frame(fcRS$annotation[,c("GeneID")],fcRS$counts,stringsAsFactors=FALSE),file="counts.txt",quote=FALSE,sep="\t",row.names=FALSE)
 
-#load data into a table
+#load data into a table (for count distribution)
 EBI_RStrandedCountTable <- read.table(file = 'RScountsEBI.txt', header = TRUE)
+
+#load data into a table for quasi-likelihood DGE
+CountTable <- read.table(file = 'counts.txt', header = TRUE)
+
 
 #######HISTOGRAM############### FUCK YEAHHHH complete facet wrap???
 ggplot(EBI_RStrandedCountTable) +
@@ -96,6 +102,7 @@ ggplot(EBI_RStrandedCountTable) +
   ylab("Number of genes")+
   xlim(0,20000)+
   ylim(0,1760)+
+  #facet_wrap()+
   theme_dark()
 #F1 COUNT DISTRIBUTION(gamma) = total gene amount vs. expression counts shows a typical single cell sequencing
 #distribution, with alot of lowly expressed genes and few genes with high expression
@@ -179,19 +186,18 @@ title("Status")
 #calculated as the leading fold change, defined as the root-mean-square 
 #of the largest 500 log2-fold changes between that pair of samples.
 
-#Linear model fitting and differential expression analysis. 
-#Fit linear models to genes
-#and assess differential expression using eBayes 
-#moderated t statistic. Here we compare sample
-#B vs sample A.
+x <- read.delim("counts.txt",row.names="fcRS.annotation...c..GeneID...")
+group <- factor(c(1,1,1,2,2,2))
+y <- DGEList(counts=x,group=group)
+keep <- filterByExpr(y)
+y <- y[keep,,keep.lib.sizes=FALSE]
+y <- calcNormFactors(y)
+design <- model.matrix(~group)
+y <- estimateDisp(y,design)
 
-####THIS DOESNT WORK BUT I WANT IT TOO ##### MAYBE TRY ANOTHER PACKAGE JUST TO GET 
-#SOMETHING TOGETHER
-fit <- lmFit(Normalization,designmatrix)
-contr <- makeContrasts(VvsF=samples,levels=designmatrix)
-fit.contr <- eBayes(contrasts.fit(fit,contr))
-dt <- decideTests(fit.contr)
-summary(dt)
+fit <- glmQLFit(y,design)
+qlf <- glmQLFTest(fit,coef=2)
+topTags(qlf)
 
 
 
