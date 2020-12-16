@@ -1,0 +1,39 @@
+---
+title: "DGE Fulvestrant/MCF-7"
+author: "Robert Bartolini"
+date: "12/16/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+########################################
+#'
+#'Differential Gene Expression Analysis
+#'Fulvestratnt-treated MCF-7 Cell Line
+#' 12/18/20
+#' 
+
+#Rsubread builds reference genome index, maps sequence reads to annotated index
+library(Rsubread)
+#For DGE
+library(edgeR)
+library(tidyverse)
+
+
+```
+
+The purpose of the workflow is to find differentially expressed genes from a RNA-seq dataset of 
+ Estrogen-receptor+ breast cancer cell lines (MCF-7), one group treated with 
+fulvestrant (estrogen inhibitor) and a untreated control group.
+
+```{r}
+#get a list of the raw reads in the directory /rnaseq
+fastq.files <- list.files(path = "rnaseq/", pattern = ".fastq$", full.names = TRUE)
+fastq.files
+##abbreviate sample names
+fastq.abbrv <- substr(fastq.files, start = 8, stop = 9)
+
