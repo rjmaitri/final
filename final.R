@@ -57,11 +57,12 @@ bam.files <- list.files(path = "rnaseq/", pattern = ".BAM$", full.names = TRUE)
 
 
 #featureCounts generates a matrix of read counts to genes in each sample
-#strandSpecific 'TruSeq Stranded mRNAseq Sample Prep kit' (Illumina). 
-#Read 1 aligns to the ANTISENSE strand and Read 2 aligns to the SENSE strand
+#strandSpecific = 2 because 'TruSeq Stranded mRNAseq Sample Prep kit' (Illumina). 
+#Read 1 aligns to the ANTISENSE strand and Read 2 aligns to the SENSE strand,
+#this maps the mrna sequence to the annotated exons
 fcRS <- featureCounts(bam.files, annot.inbuilt="hg38", strandSpecific = 2)
-
-fcRS$targets <- substr(fastq.files, start = 8, stop = 9)
+#tidy sample names
+fcRS$targets <- substr(fcRS$targets, start = 1, stop = 2)
 ####write counts to table
 
 fcRS_counts <- fcRS$counts
@@ -117,13 +118,13 @@ barplot(prop.null, main="Percentage of null counts per sample",
 
 #alot of misses
 #compute vectors for mean and variance of fulvestrant-treated samples
-mean.counts <- apply(fcRS_counts[,1:3], 1, mean)        #The second argument '1' of 'apply' function indicates the function being applied to rows. Use '2' if applied to columns 
-variance.counts <- apply(fcRS_counts[,1:3], 1, var)
+mean <- apply(fcRS_counts[,1:3], 1, mean)        #The second argument '1' of 'apply' function indicates the function being applied to rows. Use '2' if applied to columns 
+variance <- apply(fcRS_counts[,1:3], 1, var)
 MeanVariancedf <- data.frame(mean.counts, variance.counts)
 
 #scatter-plot to display mean-variance relationship
 ggplot(MeanVariancedf) +
-  geom_point(aes(x=mean.counts, y=variance.counts), colour = "orange", alpha = .8) + 
+  geom_point(aes(x=mean, y=variance), colour = "orange", alpha = .8) + 
   scale_y_log10(limits = c(1,1e9)) +
   scale_x_log10(limits = c(1,1e9)) +
   geom_abline(intercept = 0, slope = 1, color="green")+
@@ -143,13 +144,16 @@ FilteredGenes <- rowSums(cpm(DGEfulvestrant) > 10) >= 2
 DGEfulvestrant <- DGEfulvestrant[FilteredGenes,]
 ##Design matrix. Create a design matrix:
 
-samples <- factor(fastq.abbrv)
+samples <- factor(fcRS$targets)
 designmatrix <- model.matrix(~0+samples)
 colnames(designmatrix) <- levels(samples)
 ##Normalization. Perform voom normalization: DOESNT WORK
 #what is the math behind normalization in this function????
-Normalization <- voom(DGEfulvestrant,designmatrix,plot=TRUE)
+Normalization <- voom(DGEfulvestrant,designmatrix,plot=T)
 
+
+
+#####MULTI-DIMENSIONAL SCALING PLOT
 ####dimension analysis - change names of samples
 #distances on the plot approximate the typical 
 #log2 fold changes between the samples.
@@ -161,13 +165,18 @@ Normalization <- voom(DGEfulvestrant,designmatrix,plot=TRUE)
 #for the top top genes. Distances on the plot can be 
 #interpreted as leading log2-fold-change, meaning the 
 #typical (root-mean-square) log2-fold-change between the samples for the genes that distinguish those samples.
-plotMDS(Normalization,xlim=c(-17.5,17.5),ylim=c(-1.0,.5))
+plotMDS(Normalization, labels = samples, xlim=c(-1,1),ylim=c(-1.0,.5))
 
-#Linear model fitting and differential expression analysis. Fit linear models to genes
-#and assess differential expression using eBayes moderated t statistic. Here we compare sample
+#Linear model fitting and differential expression analysis. 
+#Fit linear models to genes
+#and assess differential expression using eBayes 
+#moderated t statistic. Here we compare sample
 #B vs sample A.
+
+####THIS DOESNT WORK BUT I WANT IT TOO ##### MAYBE TRY ANOTHER PACKAGE JUST TO GET 
+#SOMETHING TOGETHER
 fit <- lmFit(Normalization,designmatrix)
-contr <- makeContrasts(VvsF=V-F,levels=designmatrix)
+contr <- makeContrasts(VvsF=samples,levels=designmatrix)
 fit.contr <- eBayes(contrasts.fit(fit,contr))
 dt <- decideTests(fit.contr)
 summary(dt)
@@ -183,3 +192,11 @@ summary(dt)
 #'variance were run with a parametric fit and genotype as the source 
 #'of variation (factor: ‘mutant’ or ‘control’)
 Genome_b
+
+
+replace("F1_CAAGCTAG-ACATAGCG_L002_R1_001 (1).fastq.subread.BAM","F1"), 
+replace("F2_TGGATCGA-GTGCGATA_L002_R1_001.fastq.subread.BAM","F2"), 
+replace("F3_AGTTCAGG-CCAACAGA_L002_R1_001.fastq.subread.BAM","F3", 
+        replace("V1_CCGCGGTT-AGCGCTAG_L002_R1_001.fastq.subread.BAM","V1"), 
+        replace("V2_TTATAACC-GATATCGA_L002_R1_001.fastq.subread.BAM","V2"), 
+        replace("V3_GGACTTGG-CGCAGACG_L002_R1_001.fastq.subread.BAM","V3")
