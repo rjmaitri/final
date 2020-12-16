@@ -191,25 +191,29 @@ group <- factor(c(1,1,1,2,2,2))
 y <- DGEList(counts=x,group=group)
 keep <- filterByExpr(y)
 y <- y[keep,,keep.lib.sizes=FALSE]
+#trimmed mean of M values(TMM) normalization allows comparison of different sized libraries
+the libraries
 y <- calcNormFactors(y)
 design <- model.matrix(~group)
 y <- estimateDisp(y,design)
 
+plotBCV(y)
+
 #Fit a glm quasi-likelihood
 fit <- glmQLFit(y,design)
+plotQLDisp(fit)
+
 qlf <- glmQLFTest(fit,coef=2)
 topTags(qlf)
 
 
+#plot over/under expressed genes (whygroup2 coef?)
+plotMD(qlf)
 
-########results
-p-values/heatmap/dge list/gene ontology/pattern pathways
+fulv_glm <- glm(FRONDS ~ HLD_DIAM, data=kelp,
+                family=poisson(link="log"))
 
-#'Variance-mean dependence was estimated from count tables and 
-#'tested for differential expression based on a negative binomial 
-#'distribution, using DESeq2 v1.18.1. Pairwise comparison or one-way analysis of 
-#'variance were run with a parametric fit and genotype as the source 
-#'of variation (factor: ‘mutant’ or ‘control’)
-Genome_b
+testDispersion(qlf)
+
 
 
