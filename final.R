@@ -64,12 +64,9 @@ fcRS <- featureCounts(bam.files, annot.inbuilt="hg38", strandSpecific = 2)
 #tidy sample names
 fcRS$targets <- substr(fcRS$targets, start = 1, stop = 2)
 ####write counts to table
-
 fcRS_counts <- fcRS$counts
-
 #stranded (SUSPICIOUSLY LOW EXPRESSION)
 #fcS <- featureCounts(bam.files, annot.inbuilt="hg38", strandSpecific = 1)
-
 #dimensions - rows are genes, columns are samples
 dim(fcRS$counts)
 #six samples with 28395 genes
@@ -92,7 +89,7 @@ write.table(x=data.frame(fcRS$annotation[,c("GeneID","Length")],fcRS$counts,stri
 #load data into a table
 EBI_RStrandedCountTable <- read.table(file = 'RScountsEBI.txt', header = TRUE)
 
-#######HISTOGRAM############### FUCK YEAHHHH complete
+#######HISTOGRAM############### FUCK YEAHHHH complete facet wrap???
 ggplot(EBI_RStrandedCountTable) +
   geom_histogram(aes(x = F1_CAAGCTAG.ACATAGCG_L002_R1_001..1..fastq.subread.BAM), stat = "bin", bins = 250, colour = "lightblue", fill = "orange") +
   xlab("Raw expression counts") +
@@ -120,7 +117,7 @@ barplot(prop.null, main="Percentage of null counts per sample",
 #compute vectors for mean and variance of fulvestrant-treated samples
 mean <- apply(fcRS_counts[,1:3], 1, mean)        #The second argument '1' of 'apply' function indicates the function being applied to rows. Use '2' if applied to columns 
 variance <- apply(fcRS_counts[,1:3], 1, var)
-MeanVariancedf <- data.frame(mean.counts, variance.counts)
+MeanVariancedf <- data.frame(mean, variance)
 
 #scatter-plot to display mean-variance relationship
 ggplot(MeanVariancedf) +
@@ -167,6 +164,21 @@ Normalization <- voom(DGEfulvestrant,designmatrix,plot=T)
 #typical (root-mean-square) log2-fold-change between the samples for the genes that distinguish those samples.
 plotMDS(Normalization, labels = samples, xlim=c(-1,1),ylim=c(-1.0,.5))
 
+# Fancy Shmancy multi-dimensional plot i can try later
+par(mfrow=c(1,2))
+col.cell <- c("purple","orange")[sampleinfo$CellType]
+col.status <- c("blue","red","dark green")[sampleinfo$Status]
+plotMDS(dgeObj,col=col.cell)
+legend("topleft",fill=c("purple","orange"),legend=levels(sampleinfo$CellType))
+title("Cell type")
+plotMDS(dgeObj,col=col.status)
+legend("topleft",fill=c("blue","red","dark green"),legend=levels(sampleinfo$Status),cex=0.8)
+title("Status")
+
+#The distance between each pair of samples in the MDS plot is 
+#calculated as the leading fold change, defined as the root-mean-square 
+#of the largest 500 log2-fold changes between that pair of samples.
+
 #Linear model fitting and differential expression analysis. 
 #Fit linear models to genes
 #and assess differential expression using eBayes 
@@ -184,7 +196,7 @@ summary(dt)
 
 
 ########results
-/heatmap/dge list/NB with benjamini-hochberg correction/gene ontology/pattern pathways
+p-values/heatmap/dge list/gene ontology/pattern pathways
 
 #'Variance-mean dependence was estimated from count tables and 
 #'tested for differential expression based on a negative binomial 
@@ -194,9 +206,3 @@ summary(dt)
 Genome_b
 
 
-replace("F1_CAAGCTAG-ACATAGCG_L002_R1_001 (1).fastq.subread.BAM","F1"), 
-replace("F2_TGGATCGA-GTGCGATA_L002_R1_001.fastq.subread.BAM","F2"), 
-replace("F3_AGTTCAGG-CCAACAGA_L002_R1_001.fastq.subread.BAM","F3", 
-        replace("V1_CCGCGGTT-AGCGCTAG_L002_R1_001.fastq.subread.BAM","V1"), 
-        replace("V2_TTATAACC-GATATCGA_L002_R1_001.fastq.subread.BAM","V2"), 
-        replace("V3_GGACTTGG-CGCAGACG_L002_R1_001.fastq.subread.BAM","V3")
