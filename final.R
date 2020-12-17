@@ -192,7 +192,7 @@ y <- DGEList(counts=x,group=group)
 keep <- filterByExpr(y)
 y <- y[keep,,keep.lib.sizes=FALSE]
 #trimmed mean of M values(TMM) normalization allows comparison of different sized libraries
-the libraries
+#the libraries
 y <- calcNormFactors(y)
 design <- model.matrix(~group)
 y <- estimateDisp(y,design)
@@ -210,10 +210,10 @@ topTags(qlf)
 #plot over/under expressed genes (whygroup2 coef?)
 plotMD(qlf)
 
-fulv_glm <- glm(FRONDS ~ HLD_DIAM, data=kelp,
+fulv_glm <- glm( ~ HLD_DIAM, data=kelp,
                 family=poisson(link="log"))
 
-testDispersion(qlf)
+testDispersion(fit)
 
 
 
